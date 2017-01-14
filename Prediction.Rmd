@@ -1,0 +1,103 @@
+---
+title: "Prediction - Practical Machine Learning: Course Project"
+author: "Sandra Meneses"
+date: "14 Januar 2017"
+output: html_document
+---
+
+#Synopsis
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+
+#Libraries 
+Built under R version 3.3.1 
+* knitr: alternative tool to Sweave with a more flexible design and new features. V 1.12.3
+* caret: Classification and Regression Training. v 6.0-73
+* randomForest: Breiman and Cutler's Random Forests for Classification and Regression. V. 4.6-12
+
+```{r message=FALSE, warning=FALSE}
+library(knitr)
+library(caret)
+library(randomForest)
+opts_chunk$set(echo = TRUE, results = 'hold',warning = FALSE,message=FALSE)
+```
+
+#Data
+The data for this project come from this source: 
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+Read more: [Weight Lifting Exercise Dataset](http://groupware.les.inf.puc-rio.br/har#ixzz4Vm3WFoIg)
+
+##Data Processing
+
+
+```{r}
+#First set the working directory and seed to replicate data
+setwd('~/Data_Science/R/Tasks/MachLearn_CourseProject')
+set.seed(1401)
+
+#Download the data if necessary
+file_training <- "pml-training.csv"
+file_test <- "pml-testing.csv"
+if (!file.exists(file_training)) {
+    url <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    download.file(url, destfile = file_training)
+}
+if (!file.exists(file_test)) {
+    url <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    download.file(url, destfile = file_test)
+}
+
+#Read the data from the CSV files
+data_training <- read.csv(file_training,na.strings=c("NA","#DIV/0!",""))
+data_test <- read.csv(file_test,na.strings=c("NA","#DIV/0!",""))
+
+#Eliminate variables that are NA
+data_training <- data_training[,(colSums(is.na(data_training)) == 0)]
+data_test <- data_test[,(colSums(is.na(data_test)) == 0)]
+
+#Eliminate variables that are not necessary to predict variable classe
+data_training <- data_training[, -(1:5)]
+data_test <- data_test[, -(1:5)]
+
+## Validation data: 75%  of the training set will be used to train the model and the 25% to validate the model.
+idxTrain<- createDataPartition(data_training$classe, p=3/4, list=FALSE)
+data_training<- data_training[idxTrain, ]
+data_validation <- data_training[-idxTrain, ]
+```
+
+
+# Training and validation of the model
+
+To train the model cross validation and bootstraming is compared, and also the model with the preprocess methods: zv, center, scale, nzv, pca. It is concluded that the best accuracy is found applying cross validation and without preprocessing the data. 
+
+```{r}
+##Line codes of the other options considered
+#ctrl <- trainControl(method = "boot",number = 5,preProcOptions = list(thresh = 0.9))
+#model <- train(classe ~ .,data = data_training, method = "rf",preProcess = c("zv","center", "scale","nzv","pca"),trControl = ctrl,allowParallel=TRUE, importance=TRUE)
+ctrl <- trainControl(method = "cv",number = 5)
+model <- train(classe ~ .,data = data_training, method = "rf",trControl = ctrl,allowParallel=TRUE, importance=TRUE)
+model
+predictions <- predict(model,data_validation)
+confusionMatrix(predictions,data_validation$classe)
+
+```
+
+Predicting the variable classe in our validation data we got a 100% accuracy. 
+
+
+#Results
+
+With the final model the classe in the test set is predicted.
+
+```{r}
+predictions_test <- predict(model,data_test)
+predictions_test
+
+```
+
+The Coursera grader has marked 20/20 for the predictions in the test data.
+
+
